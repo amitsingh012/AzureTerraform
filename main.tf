@@ -30,10 +30,30 @@ resource "azurerm_network_security_rule" "RDP" {
   protocol                    = "*"
   source_port_range           = "*"
   destination_port_range      = "3389"
-  source_address_prefix       = "*"
-  destination_address_prefix  = "*"
+  source_address_prefix       = "114.143.143.134,14.142.23.154"
+  destination_address_prefix  = "10.0.0.0/16"
   resource_group_name         = "${azurerm_resource_group.RG.name}"
   network_security_group_name = "${azurerm_network_security_group.NSG.name}"
+}
+
+resource "azurerm_network_security_group" "VM" {
+  name                = "VM_NSG"
+  location            = "${azurerm_resource_group.RG.location}"
+  resource_group_name = "${azurerm_resource_group.RG.name}"
+}
+
+resource "azurerm_network_security_rule" "RDP_Server" {
+  name                        = "RDP_Server"
+  priority                    = 100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "*"
+  source_port_range           = "*"
+  destination_port_range      = "3389"
+  source_address_prefix       = "114.143.143.134,14.142.23.154"
+  destination_address_prefix  = "10.0.0.0/16"
+  resource_group_name         = "${azurerm_resource_group.RG.name}"
+  network_security_group_name = "${azurerm_network_security_group.VM.name}"
 }
 
 resource "azurerm_virtual_network" "test" {
@@ -46,18 +66,21 @@ resource "azurerm_virtual_network" "test" {
   subnet {
     name           = "Web"
     address_prefix = "10.0.1.0/24"
+    security_group = "${azurerm_network_security_group.NSG.id}"
+    
   }
 
   subnet {
     name           = "Backend"
     address_prefix = "10.0.2.0/24"
-  }
+    security_group = "${azurerm_network_security_group.NSG.id}"
+    }
 
   subnet {
     name           = "Database"
     address_prefix = "10.0.3.0/24"
     security_group = "${azurerm_network_security_group.NSG.id}"
-  }
+    }
 
   tags = {
     environment = "Production"
@@ -85,64 +108,64 @@ resource "azurerm_resource_group" "VM-RG" {
 #================================================================================================================================#
 #														Key Vault    						                                                                         #
 #================================================================================================================================#
-resource "azurerm_resource_group" "KeyVault-RG" {
-  name     = "KeyVault-RG"
-  location = "South India"
-}
+# resource "azurerm_resource_group" "KeyVault-RG" {
+#   name     = "KeyVault-RG"
+#   location = "South India"
+# }
 
-data "azurerm_client_config" "current" {}
+# data "azurerm_client_config" "current" {}
 
-resource "azurerm_key_vault" "test" {
-  name                = "diskvault051"
-  location            = "${azurerm_resource_group.KeyVault-RG.location}"
-  resource_group_name = "${azurerm_resource_group.KeyVault-RG.name}"
-  tenant_id           = "${data.azurerm_client_config.current.tenant_id}"
+# resource "azurerm_key_vault" "test" {
+#   name                = "diskvault051"
+#   location            = "${azurerm_resource_group.KeyVault-RG.location}"
+#   resource_group_name = "${azurerm_resource_group.KeyVault-RG.name}"
+#   tenant_id           = "${data.azurerm_client_config.current.tenant_id}"
 
-  sku {
-    name = "premium"
-  }
+#   sku {
+#     name = "premium"
+#   }
 
-  access_policy {
-    tenant_id = "${data.azurerm_client_config.current.tenant_id}"
-    object_id = "${data.azurerm_client_config.current.service_principal_object_id}"
+#   access_policy {
+#     tenant_id = "${data.azurerm_client_config.current.tenant_id}"
+#     object_id = "${data.azurerm_client_config.current.service_principal_object_id}"
 
-    key_permissions = [
-      "create",
-      "delete",
-      "get",
-    ]
+#     key_permissions = [
+#       "create",
+#       "delete",
+#       "get",
+#     ]
 
-    secret_permissions = [
-      "delete",
-      "get",
-      "set",
-    ]
-  }
+#     secret_permissions = [
+#       "delete",
+#       "get",
+#       "set",
+#     ]
+#   }
 
-  enabled_for_disk_encryption = true
+#   enabled_for_disk_encryption = true
 
-  tags {
-    environment = "Production"
-  }
-}
+#   tags {
+#     environment = "Production"
+#   }
+# }
 
-resource "azurerm_key_vault_secret" "test" {
-  name      = "secret"
-  value     = "szechuan"
-  vault_uri = "${azurerm_key_vault.test.vault_uri}"
-}
+# resource "azurerm_key_vault_secret" "test" {
+#   name      = "secret"
+#   value     = "szechuan"
+#   vault_uri = "${azurerm_key_vault.test.vault_uri}"
+# }
 
-resource "azurerm_key_vault_key" "test" {
-  name      = "key"
-  vault_uri = "${azurerm_key_vault.test.vault_uri}"
-  key_type  = "EC"
-  key_size  = 2048
+# resource "azurerm_key_vault_key" "test" {
+#   name      = "key"
+#   vault_uri = "${azurerm_key_vault.test.vault_uri}"
+#   key_type  = "EC"
+#   key_size  = 2048
 
-  key_opts = [
-    "sign",
-    "verify",
-  ]
-}
+#   key_opts = [
+#     "sign",
+#     "verify",
+#   ]
+# }
 
 # module "emptyDisk" {
 #     source               = "Azure/encryptedmanageddisk/azurerm"
@@ -163,8 +186,15 @@ resource "azurerm_key_vault_key" "test" {
 #														Public IPs       						                                                                         #
 #================================================================================================================================#
 
-resource "azurerm_public_ip" "test" {
-  name                         = "publicIPForLB"
+# resource "azurerm_public_ip" "test" {
+#   name                         = "publicIPForLB"
+#   location                     = "${var.location}"
+#   resource_group_name          = "${azurerm_resource_group.VM-RG.name}"
+#   public_ip_address_allocation = "static"
+# }
+
+resource "azurerm_public_ip" "VM" {
+  name                         = "publicIPForVM"
   location                     = "${var.location}"
   resource_group_name          = "${azurerm_resource_group.VM-RG.name}"
   public_ip_address_allocation = "static"
@@ -175,30 +205,32 @@ resource "azurerm_public_ip" "test" {
 #================================================================================================================================#
 
 resource "azurerm_network_interface" "NIC" {
-  count               = 2
-  name                = "VMNIC${count.index}"
-  location            = "${var.location}"
-  resource_group_name = "${azurerm_resource_group.VM-RG.name}"
-
+  count                     = 1
+  name                      = "VMNIC${count.index}"
+  location                  = "${var.location}"
+  resource_group_name       = "${azurerm_resource_group.VM-RG.name}"
+  network_security_group_id = "${azurerm_network_security_group.VM.id}"
+  
   ip_configuration {
     name                          = "testConfiguration"
     subnet_id                     = "${var.subnet_id}"
     private_ip_address_allocation = "dynamic"
+    public_ip_address_id    = "${azurerm_public_ip.VM.id}"
+    }
   }
-}
 
 #================================================================================================================================#
 #														Disks  			                                                                                         #
 #================================================================================================================================#
 
 resource "azurerm_managed_disk" "VM-Disk" {
-  count                = 2
+  count                = 1
   name                 = "datadisk_existing_${count.index}"
   location             = "${var.location}"
   resource_group_name  = "${azurerm_resource_group.VM-RG.name}"
   storage_account_type = "Standard_LRS"
   create_option        = "Empty"
-  disk_size_gb         = "1024"
+  disk_size_gb         = "1"
 }
 
 #================================================================================================================================#
@@ -206,13 +238,14 @@ resource "azurerm_managed_disk" "VM-Disk" {
 #================================================================================================================================#
 
 resource "azurerm_virtual_machine" "test" {
-  count                 = 2
+  count                 = 1
   name                  = "acctvm${count.index}"
   location              = "${var.location}"
   resource_group_name   = "${azurerm_resource_group.VM-RG.name}"
   network_interface_ids = ["${element(azurerm_network_interface.NIC.*.id, count.index)}"]
   vm_size               = "Standard_B1s"
-  availability_set_id   = "${azurerm_availability_set.avset.id}"
+  #availability_set_id   = "${azurerm_availability_set.avset.id}"
+
 
   #================================================================================================================================#
   #														Disk Image  			                                                                                   #
@@ -230,27 +263,27 @@ resource "azurerm_virtual_machine" "test" {
     create_option     = "FromImage"
     managed_disk_type = "Standard_LRS"
   }
-  #Optional data disks 
-  storage_data_disk {
-    name              = "datadisk_new_${count.index}"
-    managed_disk_type = "Standard_LRS"
-    create_option     = "Empty"
-    lun               = 0
-    disk_size_gb      = "10"
-  }
-  storage_data_disk {
-    name            = "${element(azurerm_managed_disk.VM-Disk.*.name, count.index)}"
-    managed_disk_id = "${element(azurerm_managed_disk.VM-Disk.*.id, count.index)}"
-    create_option   = "Attach"
-    lun             = 1
-    disk_size_gb    = "${element(azurerm_managed_disk.VM-Disk.*.disk_size_gb, count.index)}"
-  }
+  # #Optional data disks 
+  # storage_data_disk {
+  #   name              = "datadisk_new_${count.index}"
+  #   managed_disk_type = "Standard_LRS"
+  #   create_option     = "Empty"
+  #   lun               = 0
+  #   disk_size_gb      = "10"
+  # }
+  # storage_data_disk {
+  #   name            = "${element(azurerm_managed_disk.VM-Disk.*.name, count.index)}"
+  #   managed_disk_id = "${element(azurerm_managed_disk.VM-Disk.*.id, count.index)}"
+  #   create_option   = "Attach"
+  #   lun             = 1
+  #   disk_size_gb    = "${element(azurerm_managed_disk.VM-Disk.*.disk_size_gb, count.index)}"
+  # }
   os_profile {
     computer_name  = "server"
     admin_username = "amit"
     admin_password = "Passw0rd1234"
   }
-  # For windows uncomment below
+  #For windows uncomment below
   os_profile_windows_config {}
 
   # For Linux uncomment below
@@ -262,45 +295,52 @@ resource "azurerm_virtual_machine" "test" {
 #================================================================================================================================#
 #														Availability Sets						                                 #
 #================================================================================================================================#
-resource "azurerm_availability_set" "avset" {
-  name                         = "RDS"
-  location                     = "${var.location}"
-  resource_group_name          = "${azurerm_resource_group.VM-RG.name}"
-  platform_fault_domain_count  = 2
-  platform_update_domain_count = 2
-  managed                      = true
-}
+# resource "azurerm_availability_set" "avset" {
+#   name                         = "RDS"
+#   location                     = "${var.location}"
+#   resource_group_name          = "${azurerm_resource_group.VM-RG.name}"
+#   platform_fault_domain_count  = 2
+#   platform_update_domain_count = 2
+#   managed                      = true
+# }
+
 
 #================================================================================================================================#
 #											                            Load Balancer   			                  			                                 #
 #================================================================================================================================#
 
-resource "azurerm_public_ip" "ForLB" {
-  name                = "PublicIPForLB"
-  location            = "South India"
-  resource_group_name = "${azurerm_resource_group.VM-RG.name}"
-  allocation_method   = "Static"
-}
 
-resource "azurerm_lb" "test" {
-  name                = "TestLoadBalancer"
-  location            = "South India"
-  resource_group_name = "${azurerm_resource_group.VM-RG.name}"
+# resource "azurerm_public_ip" "ForLB" {
+#   name                = "PublicIPForLB"
+#   location            = "South India"
+#   resource_group_name = "${azurerm_resource_group.VM-RG.name}"
+#   allocation_method   = "Static"
+# }
 
-  frontend_ip_configuration {
-    name                 = "PublicIPAddress"
-    public_ip_address_id = "${azurerm_public_ip.ForLB.id}"
-  }
-}
+
+# resource "azurerm_lb" "test" {
+#   name                = "TestLoadBalancer"
+#   location            = "South India"
+#   resource_group_name = "${azurerm_resource_group.VM-RG.name}"
+
+
+#   frontend_ip_configuration {
+#     name                 = "PublicIPAddress"
+#     public_ip_address_id = "${azurerm_public_ip.ForLB.id}"
+#   }
+# }
+
 
 #================================================================================================================================#
 #											                            diagnostic Storage Account               			                                 #
 #================================================================================================================================#
 
+
 resource "azurerm_resource_group" "Storage-RG" {
   name     = "Storage-RG"
   location = "South India"
 }
+
 
 resource "azurerm_storage_account" "testdiagaccount" {
   name                     = "testdiagaccount"
@@ -308,8 +348,14 @@ resource "azurerm_storage_account" "testdiagaccount" {
   location                 = "${azurerm_resource_group.Storage-RG.location}"
   account_tier             = "Standard"
   account_replication_type = "LRS"
+  network_rules {
+    ip_rules                   = ["14.142.23.154"]
+    virtual_network_subnet_ids = ["${var.subnet_id}"]
+  }
+  
 
   tags = {
     environment = "Prod"
   }
 }
+
